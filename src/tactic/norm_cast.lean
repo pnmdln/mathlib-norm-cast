@@ -7,6 +7,7 @@ Normalizing casts inside expressions.
 -/
 
 import tactic.basic tactic.interactive tactic.converter.interactive
+import data.buffer.parser
 
 namespace tactic
 
@@ -26,26 +27,29 @@ end tactic
 namespace expr
 open tactic expr
 
-/-
-let ty an expression of the shape Π (x1 : t1) ... (x2 : tn), a = b
-let pr an expression of type ty
-then flip_equation ty returns a couple (new_ty, f) such that
-    new_ty = Π A1 .. An, b = a
-    f pr = λ (x1 : t1) ... (xn : tn), eq.symm (e x1 ... xn)
-if ty is not of the correct shape, then the tactic fails
--/
-meta def flip_eq : expr → tactic (expr × (expr → expr))
+meta def under_pis (tac : expr → tactic (expr × (expr → expr))) :
+    expr → tactic (expr × (expr → expr))
 | (pi n bi d b) := do
-    (ty, f) ← flip_eq $ instantiate_var b (local_const n n bi d),
+    (ty, f) ← under_pis $ instantiate_var b (local_const n n bi d),
     return $ (
         pi n bi d $ abstract_local ty n,
         λ e, lam n bi d $ abstract_local ( f $ e (local_const n n bi d) ) n
     )
-| ty := do
-    `(%%a = %%b) ← return ty | failure,
+| ty := tac ty
+
+meta def flip_eq (ty : expr) : tactic (expr × (expr → expr)) :=
+do
+    (a, b) ← is_eq ty,
     α ← infer_type a,
-    f ← to_expr ``(@eq.symm %%α %%a %%b),
     new_ty ← to_expr ``(%%b = %%a),
+    f ← to_expr ``(@eq.symm %%α %%a %%b),
+    return (new_ty, ⇑f)
+
+meta def flip_iff (ty : expr) : tactic (expr × (expr → expr)) :=
+do
+    (a, b) ← is_iff ty,
+    new_ty ← to_expr ``(%%b ↔ %%a),
+    f ← to_expr ``(@iff.symm %%a %%b),
     return (new_ty, ⇑f)
 
 end expr
@@ -53,30 +57,19 @@ end expr
 namespace norm_cast
 open tactic expr
 
-private meta def new_name : name → name
-| name.anonymous        := name.mk_string "norm_cast" name.anonymous
-| (name.mk_string s n)  := name.mk_string s (new_name n)
-| (name.mk_numeral i n) := name.mk_numeral i (new_name n)
-
+private meta def new_name (n : name) : name := name.mk_string "flipped" n
 
 private meta def after_set (decl : name) (prio : ℕ) (pers : bool) : tactic unit :=
 do
-    (declaration.thm n l ty task_e) ← get_decl decl | failed,
-    let new_n := new_name n,
-    ( do
-        /-
-        equation lemmas have to be flipped before
-        being added to the set of norm_cast lemmas
-        -/
-        (new_ty, f) ← flip_eq ty,
-        let task_new_e := task.map f task_e,
-        add_decl (declaration.thm new_n l new_ty task_new_e)
-    ) <|> ( do
-        add_decl (declaration.thm new_n l ty task_e)
-    )
+    (declaration.thm n l ty e) ← get_decl decl | failed,
+    let tac := λ ty, (flip_eq ty <|> flip_iff ty),
+    (ty', f) ← under_pis tac ty,
+    let e' := task.map f e,
+    let n' := new_name n,
+    add_decl (declaration.thm n' l ty' e')
 
 private meta def mk_cache : list name → tactic simp_lemmas :=
-monad.foldl (λ s, s.add_simp ∘ new_name) simp_lemmas.mk
+monad.foldl simp_lemmas.add_simp simp_lemmas.mk
 
 /--
 This is an attribute for simplification rules that are going to be
@@ -88,19 +81,28 @@ Equivalence lemmas are of the shape
     Π ..., P ↑a1 ... ↑an ↔ P a1 ... an
 
 Note that the goal of normalization is to move casts "upwards" in the
-expression, but compositional rules are written in a "downwards" fashion.
+expression.
 -/
 @[user_attribute]
-meta def norm_cast_attr : user_attribute simp_lemmas :=
+meta def norm_cast_attr : user_attribute (list name) bool :=
 {
     name      := `norm_cast,
     descr     := "attribute for cast normalization",
     after_set := some after_set,
-    cache_cfg := {
-        mk_cache     := mk_cache,
-        dependencies := [],
-    }
+    cache_cfg :=
+        { mk_cache     := return,
+          dependencies := [], },
+    parser := succeeds (lean.parser.tk "←"),
 }
+
+private meta def get_norm_cast_cache : tactic simp_lemmas :=
+do
+    ns ← norm_cast_attr.get_cache,
+    trace 0,
+    bs ← monad.mapm norm_cast_attr.get_param ns,
+    trace 1,
+    let ns := list.map₂ (λ n (b : bool), if b then new_name n else n) ns bs,
+    monad.foldl simp_lemmas.add_simp simp_lemmas.mk ns
 
 /--
 This is an attribute given to the lemmas of the shape
@@ -130,6 +132,28 @@ do
     (e', pr) ← s.rewrite new_e,
     is_def_eq e e',
     mk_eq_symm pr
+
+/-
+This is a function to pre-process numerals:
+- (1 : α) is rewritten as ((1 : ℕ) : α)
+- (0 : α) is rewritten as ((0 : ℕ) : α)
+-/
+private meta def aux_num (_ : unit) (e : expr) : tactic (unit × expr × expr) :=
+match e with
+| `(0 : ℕ) := failed
+| `(1 : ℕ) := failed
+| `(@has_zero.zero %%α %%h) := do
+    coe_nat ← to_expr ``(has_lift_t ℕ %%α) >>= mk_instance',
+    new_e ← to_expr ``(@coe ℕ %%α %%coe_nat 0),
+    pr ← aux_simp e new_e,
+    return ((), new_e, pr)
+| `(@has_one.one %%α %%h) := do
+    coe_nat ← to_expr ``(has_lift_t ℕ %%α) >>= mk_instance',
+    new_e ← to_expr ``(@coe ℕ %%α %%coe_nat 1),
+    pr ← aux_simp e new_e,
+    return ((), new_e, pr)
+| _ := failed
+end
 
 /-
 This is the main heuristic used alongside the norm_cast lemmas.
@@ -165,13 +189,14 @@ do
 | _ := failed
 end
 
--- simpa is used to discharge proofs
+/-
+simpa is used to discharge proofs
+-/
 private meta def prove : tactic unit :=
 tactic.interactive.simpa none ff [] [] none
 
-private meta def post (_ : unit) (e : expr) : tactic (unit × expr × expr) :=
+private meta def post (s : simp_lemmas) (_ : unit) (e : expr) : tactic (unit × expr × expr) :=
 do
-    s ← norm_cast_attr.get_cache,
     r ← mcond (is_prop e) (return `iff) (return `eq),
     (new_e, pr) ← s.rewrite e prove r,
     pr ← match r with
@@ -180,33 +205,13 @@ do
     end,
     return ((), new_e, pr)
 
-/-
-This is a function to pre-process numerals:
-- (1 : α) is rewritten as ((1 : ℕ) : α)
-- (0 : α) is rewritten as ((0 : ℕ) : α)
--/
-private meta def aux_num (_ : unit) (e : expr) : tactic (unit × expr × expr) :=
-match e with
-| `(0 : ℕ) := failed
-| `(1 : ℕ) := failed
-| `(@has_zero.zero %%α %%h) := do
-    coe_nat ← to_expr ``(has_lift_t ℕ %%α) >>= mk_instance',
-    new_e ← to_expr ``(@coe ℕ %%α %%coe_nat 0),
-    pr ← aux_simp e new_e,
-    return ((), new_e, pr)
-| `(@has_one.one %%α %%h) := do
-    coe_nat ← to_expr ``(has_lift_t ℕ %%α) >>= mk_instance',
-    new_e ← to_expr ``(@coe ℕ %%α %%coe_nat 1),
-    pr ← aux_simp e new_e,
-    return ((), new_e, pr)
-| _ := failed
-end
 
 /-
 Core function
 -/
 meta def derive (e : expr) : tactic (expr × expr) :=
 do
+    s ← get_norm_cast_cache,
     e ← instantiate_mvars e,
     let cfg : simp_config := {fail_if_unchanged := ff},
 
@@ -214,7 +219,7 @@ do
     ((), new_e, pr1) ← simplify_bottom_up () aux_num e cfg,
 
     -- step 2: casts are moved outwards as much as possible using norm_cast lemmas
-    ((), new_e, pr2) ← simplify_bottom_up () (λ a e, post a e <|> heur a e) new_e cfg,
+    ((), new_e, pr2) ← simplify_bottom_up () (λ a e, post s a e <|> heur a e) new_e cfg,
 
     -- step 3: casts are simplified using simp_cast lemmas
     s ← simp_cast_attr.get_cache,
@@ -349,9 +354,14 @@ meta def norm_cast : conv unit := replace_lhs derive
 
 end conv.interactive
 
+@[norm_cast] lemma ge_from_le {α} [has_le α] : ∀ (x y : α), x ≥ y ↔ y ≤ x := λ _ _, iff.rfl
+@[norm_cast] lemma gt_from_lt {α} [has_lt α] : ∀ (x y : α), x > y ↔ y < x := λ _ _, iff.rfl
+@[norm_cast] lemma ne_from_not_eq {α} : ∀ (x y : α), x ≠ y ↔ ¬(x = y) := λ _ _, iff.rfl
+
 attribute [simp_cast] int.coe_nat_zero
 attribute [simp_cast] int.coe_nat_one
 
+-- cant't add ← after norm_cast without an error
 attribute [norm_cast] int.coe_nat_succ
 attribute [norm_cast] int.coe_nat_add
 attribute [norm_cast] int.coe_nat_sub
@@ -362,7 +372,9 @@ lemma ite_cast {α β : Type} [has_coe α β] {c : Prop} [decidable c] {a b : α
     ↑(ite c a b) = ite c (↑a : β) (↑b : β) :=
 by by_cases h : c; simp [h]
 
-/- special lemmas to unfold ≥, > and ≠ -/
-@[norm_cast] lemma ge_from_le {α} [has_le α] : ∀ (x y : α), x ≥ y ↔ y ≤ x := λ _ _, iff.rfl
-@[norm_cast] lemma gt_from_lt {α} [has_lt α] : ∀ (x y : α), x > y ↔ y < x := λ _ _, iff.rfl
-@[norm_cast] lemma ne_from_not_eq {α} : ∀ (x y : α), x ≠ y ↔ ¬(x = y) := λ _ _, iff.rfl
+constants (an bn : ℕ)
+
+example : (an : ℤ) = bn :=
+begin
+  norm_cast
+end -- VM does not have code for 'boo.ff'
