@@ -717,8 +717,7 @@ theorem mul_cast_comm (a : α) :
          ← show (d:α)⁻¹ * a = a * d⁻¹, from
            division_ring.inv_comm_of_comm h₂ (int.mul_cast_comm a d).symm]
 
-@[norm_cast_rev]
-theorem cast_mk_of_ne_zero (a b : ℤ)
+@[norm_cast_rev] theorem cast_mk_of_ne_zero (a b : ℤ)
   (b0 : (b:α) ≠ 0) : (a /. b : α) = a / b :=
 begin
   have b0' : b ≠ 0, { refine mt _ b0, simp {contextual := tt} },
@@ -758,8 +757,7 @@ end
 | ⟨n, d, h, c⟩ := show (↑-n * d⁻¹ : α) = -(n * d⁻¹),
   by rw [int.cast_neg, neg_mul_eq_neg_mul]
 
-@[norm_cast_rev]
-theorem cast_sub_of_ne_zero {m n : ℚ}
+@[norm_cast_rev] theorem cast_sub_of_ne_zero {m n : ℚ}
   (m0 : (m.denom : α) ≠ 0) (n0 : (n.denom : α) ≠ 0) : ((m - n : ℚ) : α) = m - n :=
 have ((-n).denom : α) ≠ 0, by cases n; exact n0,
 by simp [m0, this, cast_add_of_ne_zero]
@@ -789,8 +787,7 @@ theorem cast_inv_of_ne_zero : ∀ {n : ℚ},
   simp [n0, d0]
 end
 
-@[norm_cast_rev]
-theorem cast_div_of_ne_zero {m n : ℚ} (md : (m.denom : α) ≠ 0)
+@[norm_cast_rev] theorem cast_div_of_ne_zero {m n : ℚ} (md : (m.denom : α) ≠ 0)
   (nn : (n.num : α) ≠ 0) (nd : (n.denom : α) ≠ 0) : ((m / n : ℚ) : α) = m / n :=
 have (n⁻¹.denom : ℤ) ∣ n.num,
 by conv in n⁻¹.denom { rw [num_denom n, inv_def] };
@@ -845,8 +842,7 @@ eq_cast_of_ne_zero _ H1 Hadd Hmul _ $
 
 end
 
-@[norm_cast_rev]
-theorem cast_mk [discrete_field α] [char_zero α] (a b : ℤ) : ((a /. b) : α) = a / b :=
+@[norm_cast_rev] theorem cast_mk [discrete_field α] [char_zero α] (a b : ℤ) : ((a /. b) : α) = a / b :=
 if b0 : b = 0 then by simp [b0, div_zero]
 else cast_mk_of_ne_zero a b (int.cast_ne_zero.2 b0)
 

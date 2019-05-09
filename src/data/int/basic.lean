@@ -480,8 +480,7 @@ end
 
 /- dvd -/
 
-@[norm_cast]
-theorem coe_nat_dvd {m n : ℕ} : (↑m : ℤ) ∣ ↑n ↔ m ∣ n :=
+@[norm_cast] theorem coe_nat_dvd {m n : ℕ} : (↑m : ℤ) ∣ ↑n ↔ m ∣ n :=
 ⟨λ ⟨a, ae⟩, m.eq_zero_or_pos.elim
   (λm0, by simp [m0] at ae; simp [ae, m0])
   (λm0l, by {
@@ -1086,8 +1085,7 @@ end
 | (n : ℕ) := cast_neg_of_nat _
 | -[1+ n] := (neg_neg _).symm
 
-@[norm_cast_rev]
-theorem cast_sub [add_group α] [has_one α] (m n) : ((m - n : ℤ) : α) = m - n :=
+@[norm_cast_rev] theorem cast_sub [add_group α] [has_one α] (m n) : ((m - n : ℤ) : α) = m - n :=
 by simp
 
 @[simp] theorem cast_eq_zero [add_group α] [has_one α] [char_zero α] {n : ℤ} : (n : α) = 0 ↔ n = 0 :=

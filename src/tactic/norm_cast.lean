@@ -372,7 +372,7 @@ attribute [norm_cast_rev] int.coe_nat_add
 attribute [norm_cast_rev] int.coe_nat_sub
 attribute [norm_cast_rev] int.coe_nat_mul
 
-@[norm_cast_rev]
-lemma ite_cast {α β : Type} [has_coe α β] {c : Prop} [decidable c] {a b : α} :
+@[norm_cast_rev] lemma ite_cast {α β : Type} [has_coe α β]
+    {c : Prop} [decidable c] {a b : α} :
     ↑(ite c a b) = ite c (↑a : β) (↑b : β) :=
 by by_cases h : c; simp [h]
