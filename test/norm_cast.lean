@@ -54,3 +54,10 @@ end
 
 example (h : bn ≤ an) : an - bn = 1 ↔ (an - bn : ℤ) = 1 :=
 by norm_cast
+
+example (h : an = 0) : (an : ℝ) = (bn : ℂ).im :=
+begin
+  norm_cast, -- this should normalize completely
+  norm_cast, -- this shoudl fail
+  apply h
+end
