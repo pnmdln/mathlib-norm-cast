@@ -736,8 +736,7 @@ begin
       ← mul_assoc, this, mul_assoc, mul_inv_cancel b0, mul_one]
 end
 
--- TODO: @[norm_cast_rev]
-theorem cast_add_of_ne_zero : ∀ {m n : ℚ},
+@[norm_cast_rev] theorem cast_add_of_ne_zero : ∀ {m n : ℚ},
   (m.denom : α) ≠ 0 → (n.denom : α) ≠ 0 → ((m + n : ℚ) : α) = m + n
 | ⟨n₁, d₁, h₁, c₁⟩ ⟨n₂, d₂, h₂, c₂⟩ := λ (d₁0 : (d₁:α) ≠ 0) (d₂0 : (d₂:α) ≠ 0), begin
   have d₁0' : (d₁:ℤ) ≠ 0 := int.coe_nat_ne_zero.2 (λ e, by rw e at d₁0; exact d₁0 rfl),
@@ -762,8 +761,7 @@ end
 have ((-n).denom : α) ≠ 0, by cases n; exact n0,
 by simp [m0, this, cast_add_of_ne_zero]
 
--- TODO: @[norm_cast_rev]
-theorem cast_mul_of_ne_zero : ∀ {m n : ℚ},
+@[norm_cast_rev] theorem cast_mul_of_ne_zero : ∀ {m n : ℚ},
   (m.denom : α) ≠ 0 → (n.denom : α) ≠ 0 → ((m * n : ℚ) : α) = m * n
 | ⟨n₁, d₁, h₁, c₁⟩ ⟨n₂, d₂, h₂, c₂⟩ := λ (d₁0 : (d₁:α) ≠ 0) (d₂0 : (d₂:α) ≠ 0), begin
   have d₁0' : (d₁:ℤ) ≠ 0 := int.coe_nat_ne_zero.2 (λ e, by rw e at d₁0; exact d₁0 rfl),
@@ -776,8 +774,7 @@ theorem cast_mul_of_ne_zero : ∀ {m n : ℚ},
   rw [division_ring.inv_comm_of_comm d₁0 (nat.mul_cast_comm _ _).symm]
 end
 
--- TODO: @[norm_cast_rev]
-theorem cast_inv_of_ne_zero : ∀ {n : ℚ},
+@[norm_cast_rev] theorem cast_inv_of_ne_zero : ∀ {n : ℚ},
   (n.num : α) ≠ 0 → (n.denom : α) ≠ 0 → ((n⁻¹ : ℚ) : α) = n⁻¹
 | ⟨n, d, h, c⟩ := λ (n0 : (n:α) ≠ 0) (d0 : (d:α) ≠ 0), begin
   have n0' : (n:ℤ) ≠ 0 := λ e, by rw e at n0; exact n0 rfl,

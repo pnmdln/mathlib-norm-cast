@@ -27,13 +27,15 @@ end tactic
 namespace expr
 open tactic expr
 
-meta def under_pis (tac : expr → tactic (expr × (expr → expr))) :
+meta def aux (tac : expr → tactic (expr × (expr → expr))) :
     expr → tactic (expr × (expr → expr))
 | (pi n bi d b) := do
-    (ty, f) ← under_pis $ instantiate_var b (local_const n n bi d),
+    uniq_n ← mk_fresh_name,
+    let b' := b.instantiate_var (local_const uniq_n n bi d),
+    (b', f) ← aux b',
     return $ (
-        pi n bi d $ abstract_local ty n,
-        λ e, lam n bi d $ abstract_local ( f $ e (local_const n n bi d) ) n
+        pi n bi d $ b'.abstract_local uniq_n,
+        λ e, lam n bi d $ ( f $ e (local_const uniq_n n bi d) ).abstract_local uniq_n
     )
 | ty := tac ty
 
@@ -63,7 +65,7 @@ private meta def after_set (decl : name) (prio : ℕ) (pers : bool) : tactic uni
 do
     (declaration.thm n l ty e) ← get_decl decl | failed,
     let tac := λ ty, (flip_eq ty <|> flip_iff ty),
-    (ty', f) ← under_pis tac ty,
+    (ty', f) ← aux tac ty,
     let e' := task.map f e,
     let n' := new_name n,
     add_decl (declaration.thm n' l ty' e')
