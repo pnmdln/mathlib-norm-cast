@@ -223,18 +223,17 @@ do
     e ← instantiate_mvars e,
     let cfg : simp_config := {fail_if_unchanged := ff},
 
-    -- step 1: pre-processing numerals
-    ((), new_e, pr1) ← simplify_bottom_up () aux_num e cfg,
+    -- step 1: casts are moved outwards as much as possible using norm_cast lemmas
+    ((), new_e, pr1) ← simplify_bottom_up ()
+        (λ a e, post s a e <|> heur a e <|> aux_num a e)
+        e cfg,
 
-    -- step 2: casts are moved outwards as much as possible using norm_cast lemmas
-    ((), new_e, pr2) ← simplify_bottom_up () (λ a e, post s a e <|> heur a e) new_e cfg,
-
-    -- step 3: casts are simplified using simp_cast lemmas
+    -- step 2: casts are simplified using simp_cast lemmas
     s ← simp_cast_attr.get_cache,
-    (new_e, pr3) ← simplify s [] new_e cfg,
+    (new_e, pr2) ← simplify s [] new_e cfg,
 
     guard (¬ new_e =ₐ e),
-    pr ← mk_eq_trans pr2 pr3 >>= mk_eq_trans pr1,
+    pr ← mk_eq_trans pr1 pr2,
     return (new_e, pr)
 
 end norm_cast
