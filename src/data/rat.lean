@@ -690,16 +690,16 @@ show (n / (1:ℕ) : α) = n, by rw [nat.cast_one, div_one]
 @[simp, simp_cast] theorem cast_coe_int (n : ℤ) : ((n : ℚ) : α) = n :=
 by rw [coe_int_eq_of_int, cast_of_int]
 
-@[simp] theorem coe_int_num (n : ℤ) : (n : ℚ).num = n :=
+@[simp, norm_cast] theorem coe_int_num (n : ℤ) : (n : ℚ).num = n :=
 by rw coe_int_eq_of_int; refl
 
-@[simp] theorem coe_int_denom (n : ℤ) : (n : ℚ).denom = 1 :=
+@[simp, norm_cast] theorem coe_int_denom (n : ℤ) : (n : ℚ).denom = 1 :=
 by rw coe_int_eq_of_int; refl
 
-@[simp] theorem coe_nat_num (n : ℕ) : (n : ℚ).num = n :=
+@[simp, norm_cast] theorem coe_nat_num (n : ℕ) : (n : ℚ).num = n :=
 by rw [← int.cast_coe_nat, coe_int_num]
 
-@[simp] theorem coe_nat_denom (n : ℕ) : (n : ℚ).denom = 1 :=
+@[simp, norm_cast] theorem coe_nat_denom (n : ℕ) : (n : ℚ).denom = 1 :=
 by rw [← int.cast_coe_nat, coe_int_denom]
 
 @[simp, simp_cast] theorem cast_coe_nat (n : ℕ) : ((n : ℚ) : α) = n := cast_coe_int n
@@ -717,6 +717,7 @@ theorem mul_cast_comm (a : α) :
          ← show (d:α)⁻¹ * a = a * d⁻¹, from
            division_ring.inv_comm_of_comm h₂ (int.mul_cast_comm a d).symm]
 
+@[norm_cast_rev]
 theorem cast_mk_of_ne_zero (a b : ℤ)
   (b0 : (b:α) ≠ 0) : (a /. b : α) = a / b :=
 begin
@@ -736,6 +737,7 @@ begin
       ← mul_assoc, this, mul_assoc, mul_inv_cancel b0, mul_one]
 end
 
+-- TODO: @[norm_cast_rev]
 theorem cast_add_of_ne_zero : ∀ {m n : ℚ},
   (m.denom : α) ≠ 0 → (n.denom : α) ≠ 0 → ((m + n : ℚ) : α) = m + n
 | ⟨n₁, d₁, h₁, c₁⟩ ⟨n₂, d₂, h₂, c₂⟩ := λ (d₁0 : (d₁:α) ≠ 0) (d₂0 : (d₂:α) ≠ 0), begin
@@ -752,15 +754,17 @@ theorem cast_add_of_ne_zero : ∀ {m n : ℚ},
       ← nat.mul_cast_comm], simp [d₁0, mul_assoc]
 end
 
-@[simp, norm_cast] theorem cast_neg : ∀ n, ((-n : ℚ) : α) = -n
+@[simp, norm_cast_rev] theorem cast_neg : ∀ n, ((-n : ℚ) : α) = -n
 | ⟨n, d, h, c⟩ := show (↑-n * d⁻¹ : α) = -(n * d⁻¹),
   by rw [int.cast_neg, neg_mul_eq_neg_mul]
 
+@[norm_cast_rev]
 theorem cast_sub_of_ne_zero {m n : ℚ}
   (m0 : (m.denom : α) ≠ 0) (n0 : (n.denom : α) ≠ 0) : ((m - n : ℚ) : α) = m - n :=
 have ((-n).denom : α) ≠ 0, by cases n; exact n0,
 by simp [m0, this, cast_add_of_ne_zero]
 
+-- TODO: @[norm_cast_rev]
 theorem cast_mul_of_ne_zero : ∀ {m n : ℚ},
   (m.denom : α) ≠ 0 → (n.denom : α) ≠ 0 → ((m * n : ℚ) : α) = m * n
 | ⟨n₁, d₁, h₁, c₁⟩ ⟨n₂, d₂, h₂, c₂⟩ := λ (d₁0 : (d₁:α) ≠ 0) (d₂0 : (d₂:α) ≠ 0), begin
@@ -774,6 +778,7 @@ theorem cast_mul_of_ne_zero : ∀ {m n : ℚ},
   rw [division_ring.inv_comm_of_comm d₁0 (nat.mul_cast_comm _ _).symm]
 end
 
+-- TODO: @[norm_cast_rev]
 theorem cast_inv_of_ne_zero : ∀ {n : ℚ},
   (n.num : α) ≠ 0 → (n.denom : α) ≠ 0 → ((n⁻¹ : ℚ) : α) = n⁻¹
 | ⟨n, d, h, c⟩ := λ (n0 : (n:α) ≠ 0) (d0 : (d:α) ≠ 0), begin
@@ -784,6 +789,7 @@ theorem cast_inv_of_ne_zero : ∀ {n : ℚ},
   simp [n0, d0]
 end
 
+@[norm_cast_rev]
 theorem cast_div_of_ne_zero {m n : ℚ} (md : (m.denom : α) ≠ 0)
   (nn : (n.num : α) ≠ 0) (nd : (n.denom : α) ≠ 0) : ((m / n : ℚ) : α) = m / n :=
 have (n⁻¹.denom : ℤ) ∣ n.num,
@@ -839,33 +845,34 @@ eq_cast_of_ne_zero _ H1 Hadd Hmul _ $
 
 end
 
+@[norm_cast_rev]
 theorem cast_mk [discrete_field α] [char_zero α] (a b : ℤ) : ((a /. b) : α) = a / b :=
 if b0 : b = 0 then by simp [b0, div_zero]
 else cast_mk_of_ne_zero a b (int.cast_ne_zero.2 b0)
 
-@[simp, norm_cast] theorem cast_add [division_ring α] [char_zero α] (m n) : ((m + n : ℚ) : α) = m + n :=
+@[simp, norm_cast_rev] theorem cast_add [division_ring α] [char_zero α] (m n) : ((m + n : ℚ) : α) = m + n :=
 cast_add_of_ne_zero (nat.cast_ne_zero.2 $ ne_of_gt m.pos) (nat.cast_ne_zero.2 $ ne_of_gt n.pos)
 
-@[simp, norm_cast] theorem cast_sub [division_ring α] [char_zero α] (m n) : ((m - n : ℚ) : α) = m - n :=
+@[simp, norm_cast_rev] theorem cast_sub [division_ring α] [char_zero α] (m n) : ((m - n : ℚ) : α) = m - n :=
 cast_sub_of_ne_zero (nat.cast_ne_zero.2 $ ne_of_gt m.pos) (nat.cast_ne_zero.2 $ ne_of_gt n.pos)
 
-@[simp, norm_cast] theorem cast_mul [division_ring α] [char_zero α] (m n) : ((m * n : ℚ) : α) = m * n :=
+@[simp, norm_cast_rev] theorem cast_mul [division_ring α] [char_zero α] (m n) : ((m * n : ℚ) : α) = m * n :=
 cast_mul_of_ne_zero (nat.cast_ne_zero.2 $ ne_of_gt m.pos) (nat.cast_ne_zero.2 $ ne_of_gt n.pos)
 
-@[simp, norm_cast] theorem cast_inv [discrete_field α] [char_zero α] (n) : ((n⁻¹ : ℚ) : α) = n⁻¹ :=
+@[simp, norm_cast_rev] theorem cast_inv [discrete_field α] [char_zero α] (n) : ((n⁻¹ : ℚ) : α) = n⁻¹ :=
 if n0 : n.num = 0 then
   by simp [show n = 0, by rw [num_denom n, n0]; simp, inv_zero] else
 cast_inv_of_ne_zero (int.cast_ne_zero.2 n0) (nat.cast_ne_zero.2 $ ne_of_gt n.pos)
 
-@[simp, norm_cast] theorem cast_div [discrete_field α] [char_zero α] (m n) : ((m / n : ℚ) : α) = m / n :=
+@[simp, norm_cast_rev] theorem cast_div [discrete_field α] [char_zero α] (m n) : ((m / n : ℚ) : α) = m / n :=
 by rw [division_def, cast_mul, cast_inv, division_def]
 
-@[simp, norm_cast] theorem cast_pow [discrete_field α] [char_zero α] (q) (k : ℕ) : ((q ^ k : ℚ) : α) = q ^ k :=
+@[simp, norm_cast_rev] theorem cast_pow [discrete_field α] [char_zero α] (q) (k : ℕ) : ((q ^ k : ℚ) : α) = q ^ k :=
 by induction k; simp only [*, cast_one, cast_mul, pow_zero, pow_succ]
 
-@[simp, simp_cast, norm_cast] theorem cast_bit0 [division_ring α] [char_zero α] (n : ℚ) : ((bit0 n : ℚ) : α) = bit0 n := cast_add _ _
+@[simp, simp_cast, norm_cast_rev] theorem cast_bit0 [division_ring α] [char_zero α] (n : ℚ) : ((bit0 n : ℚ) : α) = bit0 n := cast_add _ _
 
-@[simp, simp_cast, norm_cast] theorem cast_bit1 [division_ring α] [char_zero α] (n : ℚ) : ((bit1 n : ℚ) : α) = bit1 n :=
+@[simp, simp_cast, norm_cast_rev] theorem cast_bit1 [division_ring α] [char_zero α] (n : ℚ) : ((bit1 n : ℚ) : α) = bit1 n :=
 by rw [bit1, cast_add, cast_one, cast_bit0]; refl
 
 @[simp] theorem cast_nonneg [linear_ordered_field α] : ∀ {n : ℚ}, 0 ≤ (n : α) ↔ 0 ≤ n
@@ -892,13 +899,13 @@ by rw [← cast_zero, cast_lt]
 @[simp, simp_cast] theorem cast_id : ∀ n : ℚ, ↑n = n
 | ⟨n, d, h, c⟩ := show (n / (d : ℤ) : ℚ) = _, by rw [num_denom', mk_eq_div]
 
-@[simp, norm_cast] theorem cast_min [discrete_linear_ordered_field α] {a b : ℚ} : (↑(min a b) : α) = min a b :=
+@[simp, norm_cast_rev] theorem cast_min [discrete_linear_ordered_field α] {a b : ℚ} : (↑(min a b) : α) = min a b :=
 by by_cases a ≤ b; simp [h, min]
 
-@[simp, norm_cast] theorem cast_max [discrete_linear_ordered_field α] {a b : ℚ} : (↑(max a b) : α) = max a b :=
+@[simp, norm_cast_rev] theorem cast_max [discrete_linear_ordered_field α] {a b : ℚ} : (↑(max a b) : α) = max a b :=
 by by_cases a ≤ b; simp [h, max]
 
-@[simp, norm_cast] theorem cast_abs [discrete_linear_ordered_field α] {q : ℚ} : ((abs q : ℚ) : α) = abs q :=
+@[simp, norm_cast_rev] theorem cast_abs [discrete_linear_ordered_field α] {q : ℚ} : ((abs q : ℚ) : α) = abs q :=
 by simp [abs]
 
 end cast

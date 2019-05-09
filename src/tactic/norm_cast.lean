@@ -57,7 +57,7 @@ end expr
 namespace norm_cast
 open tactic expr
 
-private meta def new_name (n : name) : name := name.mk_string "flipped" n
+private meta def new_name (n : name) : name := name.mk_string "reversed" n
 
 private meta def after_set (decl : name) (prio : ℕ) (pers : bool) : tactic unit :=
 do
@@ -84,25 +84,31 @@ Note that the goal of normalization is to move casts "upwards" in the
 expression.
 -/
 @[user_attribute]
-meta def norm_cast_attr : user_attribute (list name) bool :=
+meta def norm_cast_attr : user_attribute simp_lemmas :=
 {
     name      := `norm_cast,
     descr     := "attribute for cast normalization",
+    cache_cfg :=
+        { mk_cache     := mk_cache,
+          dependencies := [], },
+}
+
+@[user_attribute]
+meta def norm_cast_rev_attr : user_attribute simp_lemmas :=
+{
+    name      := `norm_cast_rev,
+    descr     := "attribute for cast normalization",
     after_set := some after_set,
     cache_cfg :=
-        { mk_cache     := return,
+        { mk_cache     := mk_cache ∘ (list.map new_name),
           dependencies := [], },
-    parser := succeeds (lean.parser.tk "←"),
 }
 
 private meta def get_norm_cast_cache : tactic simp_lemmas :=
 do
-    ns ← norm_cast_attr.get_cache,
-    trace 0,
-    bs ← monad.mapm norm_cast_attr.get_param ns,
-    trace 1,
-    let ns := list.map₂ (λ n (b : bool), if b then new_name n else n) ns bs,
-    monad.foldl simp_lemmas.add_simp simp_lemmas.mk ns
+    a ← norm_cast_attr.get_cache,
+    b ← norm_cast_rev_attr.get_cache,
+    return $ simp_lemmas.join a b
 
 /--
 This is an attribute given to the lemmas of the shape
@@ -361,20 +367,12 @@ end conv.interactive
 attribute [simp_cast] int.coe_nat_zero
 attribute [simp_cast] int.coe_nat_one
 
--- cant't add ← after norm_cast without an error
-attribute [norm_cast] int.coe_nat_succ
-attribute [norm_cast] int.coe_nat_add
-attribute [norm_cast] int.coe_nat_sub
-attribute [norm_cast] int.coe_nat_mul
+attribute [norm_cast_rev] int.coe_nat_succ
+attribute [norm_cast_rev] int.coe_nat_add
+attribute [norm_cast_rev] int.coe_nat_sub
+attribute [norm_cast_rev] int.coe_nat_mul
 
-@[norm_cast]
+@[norm_cast_rev]
 lemma ite_cast {α β : Type} [has_coe α β] {c : Prop} [decidable c] {a b : α} :
     ↑(ite c a b) = ite c (↑a : β) (↑b : β) :=
 by by_cases h : c; simp [h]
-
-constants (an bn : ℕ)
-
-example : (an : ℤ) = bn :=
-begin
-  norm_cast
-end -- VM does not have code for 'boo.ff'
