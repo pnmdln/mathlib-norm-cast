@@ -74,16 +74,12 @@ private meta def mk_cache : list name → tactic simp_lemmas :=
 monad.foldl simp_lemmas.add_simp simp_lemmas.mk
 
 /--
-This is an attribute for simplification rules that are going to be
+This is an attribute for simplification rules that are
 used to normalize casts.
 
-Equation lemmas are compositional lemmas of the shape
-    Π ..., ↑(P a1 ... an) = P ↑a1 ... ↑an
-Equivalence lemmas are of the shape
-    Π ..., P ↑a1 ... ↑an ↔ P a1 ... an
-
-Note that the goal of normalization is to move casts "upwards" in the
-expression.
+Let r be = or ↔, then elimination lemmas of the shape
+Π ..., P ↑a1 ... ↑an r P a1 ... an should be given the
+attribute norm_cast.
 -/
 @[user_attribute]
 meta def norm_cast_attr : user_attribute simp_lemmas :=
@@ -95,6 +91,14 @@ meta def norm_cast_attr : user_attribute simp_lemmas :=
           dependencies := [], },
 }
 
+/--
+This is an attribute for simplification rules that are
+used to normalize casts.
+
+Let r be = or ↔, then compositional lemmas of the shape
+Π ..., ↑(P a1 ... an) r P ↑a1 ... ↑an should be given the
+attribute norm_cast_rev.
+-/
 @[user_attribute]
 meta def norm_cast_rev_attr : user_attribute simp_lemmas :=
 {
@@ -113,8 +117,8 @@ do
     return $ simp_lemmas.join a b
 
 /--
-This is an attribute given to the lemmas of the shape
-Π ..., ↑↑a = ↑a or  Π ..., ↑a = a
+This is an attribute for simplifications rules of the shape
+Π ..., ↑↑a = ↑a or  Π ..., ↑a = a.
 
 They are used in a heuristic to infer intermediate casts.
 -/
@@ -142,9 +146,9 @@ do
     mk_eq_symm pr
 
 /-
-This is a function to pre-process numerals:
-- (1 : α) is rewritten as ((1 : ℕ) : α)
-- (0 : α) is rewritten as ((0 : ℕ) : α)
+This is a supecial function for numerals:
+  - (1 : α) is rewritten as ((1 : ℕ) : α)
+  - (0 : α) is rewritten as ((0 : ℕ) : α)
 -/
 private meta def aux_num (_ : unit) (e : expr) : tactic (unit × expr × expr) :=
 match e with
